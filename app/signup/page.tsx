@@ -32,7 +32,7 @@ export default function SignupPage() {
                 const user = data?.user;
                 if (user) {
                     // Already logged in, redirect to home
-                    router.replace('/');
+                    window.location.href = '/';
                 } else {
                     setChecking(false);
                 }
@@ -72,14 +72,14 @@ export default function SignupPage() {
 
     if (checking) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+            <div className="min-h-[100dvh] bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
                 <Loader className="w-8 h-8 animate-spin text-blue-600" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
+        <div className="min-h-[100dvh] bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
             <div className="max-w-md mx-auto">
                 <Link href="/" className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline mb-6">
                     <ArrowLeft className="w-4 h-4 mr-2" />
