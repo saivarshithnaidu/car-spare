@@ -1,0 +1,19 @@
+﻿commit b3c89938df2e0f136c1515b13e071d2860faae22
+Author: saivarshithnaidu <saivarshith8284@gmail.com>
+Date:   Tue Feb 24 23:57:24 2026 +0530
+
+    Fix mobile login and signup issues
+
+diff --git a/components/Navbar.tsx b/components/Navbar.tsx
+index 41a07f9..f29ad88 100644
+--- a/components/Navbar.tsx
++++ b/components/Navbar.tsx
+@@ -110,7 +110,7 @@ export default function Navbar() {
+         setUser(null);
+         setIsAdmin(false);
+         toast.success('Logged out successfully');
+-        router.push('/');
++        window.location.href = '/';
+     }
+ 
+     return (

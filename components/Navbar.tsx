@@ -110,7 +110,8 @@ export default function Navbar() {
         setUser(null);
         setIsAdmin(false);
         toast.success('Logged out successfully');
-        window.location.href = '/';
+        router.push('/');
+        router.refresh();
     }
 
     return (
