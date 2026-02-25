@@ -37,11 +37,10 @@ export default function CompleteProfilePage() {
                 setUserId(user.id);
 
                 // Fetch current user details from 'users' table
-                const { data: userData, error: userError } = await supabase
-                    .from('users')
-                    .select('profile_completed, full_name, phone, address, district, state, pincode')
-                    .eq('id', user.id)
-                    .single();
+                const res = await fetch(`/api/users/${user.id}`);
+                if (!res.ok) throw new Error('User not found');
+                const userData = await res.json();
+                const userError = null;
 
                 if (!userError && userData) {
                     if (userData.profile_completed) {
@@ -89,9 +88,10 @@ export default function CompleteProfilePage() {
                 throw new Error('User ID not found');
             }
 
-            const { error } = await supabase
-                .from('users')
-                .update({
+            const res = await fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     full_name: fullName,
                     phone,
                     address,
@@ -100,10 +100,11 @@ export default function CompleteProfilePage() {
                     pincode,
                     profile_completed: true,
                 })
-                .eq('id', userId);
+            });
 
-            if (error) {
-                throw error;
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Failed to update profile');
             }
 
             toast.success('Profile completed successfully!');

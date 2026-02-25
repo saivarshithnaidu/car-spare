@@ -30,21 +30,27 @@ export default function AdminKhatabookPage() {
     }, []);
 
     async function fetchKhatabookEntries() {
-        const { data } = await supabase
-            .from('khatabook')
-            .select('*, users(email, full_name, phone)')
-            .order('created_at', { ascending: false });
-
-        if (data) setEntries(data);
+        try {
+            const res = await fetch('/api/khatabook');
+            if (res.ok) {
+                const data = await res.json();
+                setEntries(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch khatabook entries', error);
+        }
     }
 
     async function fetchCustomers() {
-        const { data } = await supabase
-            .from('users')
-            .select('id, email, full_name, phone')
-            .eq('role', 'customer')
-            .order('created_at', { ascending: false });
-        if (data) setCustomers(data);
+        try {
+            const res = await fetch('/api/users?role=customer');
+            if (res.ok) {
+                const data = await res.json();
+                setCustomers(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch customers', error);
+        }
     }
 
     async function handleAddEntry(e: React.FormEvent) {
@@ -62,9 +68,10 @@ export default function AdminKhatabookPage() {
         const status = pendingAmount === 0 ? 'paid' : (new Date(dueDate) < new Date() ? 'overdue' : 'pending');
 
         try {
-            const { error } = await supabase
-                .from('khatabook')
-                .insert({
+            const res = await fetch('/api/khatabook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     user_id: selectedCustomer,
                     total_amount: Number(totalAmount),
                     paid_amount: Number(paidAmount),
@@ -72,9 +79,10 @@ export default function AdminKhatabookPage() {
                     due_date: dueDate || null,
                     status: status,
                     notes: notes
-                });
+                })
+            });
 
-            if (error) throw error;
+            if (!res.ok) throw new Error('Failed to add entry');
 
             toast.success('Khatabook entry added successfully!');
             setIsModalOpen(false);
@@ -96,24 +104,15 @@ export default function AdminKhatabookPage() {
     }
 
     async function markAsPaid(id: string) {
-        let { error } = await supabase
-            .rpc('mark_khatabook_paid', { entry_id: id });
+        try {
+            const res = await fetch(`/api/khatabook/${id}?action=mark-paid`, { method: 'PUT' });
+            if (!res.ok) throw new Error('Failed to update status');
 
-        if (error) {
-            // Fallback if RPC doesn't exist
-            const fallbackResult = await supabase
-                .from('khatabook')
-                .update({ status: 'paid', pending_amount: 0 })
-                .eq('id', id);
-            error = fallbackResult.error;
-        }
-
-        if (error) {
-            toast.error('Failed to update status');
-            console.error(error);
-        } else {
             toast.success('Marked as paid');
             fetchKhatabookEntries();
+        } catch (error) {
+            toast.error('Failed to update status');
+            console.error(error);
         }
     }
 

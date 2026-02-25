@@ -150,22 +150,25 @@ export async function uploadInvoiceToSupabase(pdfBytes: Uint8Array, invoiceNumbe
     // Create Blob from bytes. Use slice() to safely pass buffer to Blob
     const pdfBlob = new Blob([pdfBytes.slice()], { type: 'application/pdf' });
 
-    const { data, error } = await supabase.storage
-        .from('invoices')
-        .upload(fileName, pdfBlob, {
-            contentType: 'application/pdf',
-            cacheControl: '3600',
-            upsert: false
+    const formData = new FormData();
+    formData.append('file', pdfBlob, fileName);
+    formData.append('bucket', 'invoices');
+    formData.append('path', fileName);
+
+    try {
+        const res = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
         });
 
-    if (error) {
+        if (!res.ok) {
+            throw new Error('Failed to upload via API');
+        }
+
+        const data = await res.json();
+        return data.url;
+    } catch (error) {
         console.error('Invoice Upload Error:', error);
         throw new Error('Failed to upload invoice PDF');
     }
-
-    const { data: { publicUrl } } = supabase.storage
-        .from('invoices')
-        .getPublicUrl(fileName);
-
-    return publicUrl;
 }

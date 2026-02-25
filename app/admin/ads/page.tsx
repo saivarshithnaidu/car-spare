@@ -27,12 +27,15 @@ export default function AdminAdsPage() {
     }, []);
 
     async function fetchAds() {
-        const { data } = await supabase
-            .from('ads')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (data) setAds(data);
+        try {
+            const res = await fetch('/api/ads');
+            if (res.ok) {
+                const data = await res.json();
+                setAds(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch ads', error);
+        }
     }
 
     function openAddModal() {
@@ -55,56 +58,57 @@ export default function AdminAdsPage() {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
-        if (editingAd) {
-            const { error } = await supabase
-                .from('ads')
-                .update(formData)
-                .eq('id', editingAd.id);
-
-            if (error) {
-                toast.error('Failed to update ad');
-            } else {
+        try {
+            if (editingAd) {
+                const res = await fetch(`/api/ads/${editingAd.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (!res.ok) throw new Error();
                 toast.success('Ad updated successfully');
-                setIsModalOpen(false);
-                fetchAds();
-            }
-        } else {
-            const { error } = await supabase.from('ads').insert(formData);
-
-            if (error) {
-                toast.error('Failed to create ad');
             } else {
+                const res = await fetch('/api/ads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (!res.ok) throw new Error();
                 toast.success('Ad created successfully');
-                setIsModalOpen(false);
-                fetchAds();
             }
+            setIsModalOpen(false);
+            fetchAds();
+        } catch (error) {
+            toast.error(editingAd ? 'Failed to update ad' : 'Failed to create ad');
         }
     }
 
     async function toggleActive(id: string, currentStatus: boolean) {
-        const { error } = await supabase
-            .from('ads')
-            .update({ active: !currentStatus })
-            .eq('id', id);
+        try {
+            const res = await fetch(`/api/ads/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ active: !currentStatus })
+            });
 
-        if (error) {
-            toast.error('Failed to toggle ad status');
-        } else {
+            if (!res.ok) throw new Error();
             toast.success('Ad status updated');
             fetchAds();
+        } catch (error) {
+            toast.error('Failed to toggle ad status');
         }
     }
 
     async function handleDelete(id: string) {
         if (!confirm('Are you sure you want to delete this ad?')) return;
 
-        const { error } = await supabase.from('ads').delete().eq('id', id);
-
-        if (error) {
-            toast.error('Failed to delete ad');
-        } else {
+        try {
+            const res = await fetch(`/api/ads/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error();
             toast.success('Ad deleted successfully');
             fetchAds();
+        } catch (error) {
+            toast.error('Failed to delete ad');
         }
     }
 

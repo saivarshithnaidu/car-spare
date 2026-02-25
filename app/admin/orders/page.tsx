@@ -17,30 +17,30 @@ export default function AdminOrdersPage() {
     }, [filter]);
 
     async function fetchOrders() {
-        let query = supabase
-            .from('orders')
-            .select('*, users(email)')
-            .order('created_at', { ascending: false });
-
-        if (filter !== 'all') {
-            query = query.eq('payment_status', filter);
+        try {
+            const res = await fetch(`/api/orders?payment_status=${filter}`);
+            if (res.ok) {
+                const data = await res.json();
+                setOrders(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch orders');
         }
-
-        const { data } = await query;
-        if (data) setOrders(data);
     }
 
     async function updateOrderStatus(orderId: string, newStatus: string) {
-        const { error } = await supabase
-            .from('orders')
-            .update({ order_status: newStatus })
-            .eq('id', orderId);
+        try {
+            const res = await fetch(`/api/orders/${orderId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_status: newStatus })
+            });
 
-        if (error) {
-            toast.error('Failed to update order status');
-        } else {
+            if (!res.ok) throw new Error();
             toast.success('Order status updated');
             fetchOrders();
+        } catch (error) {
+            toast.error('Failed to update order status');
         }
     }
 

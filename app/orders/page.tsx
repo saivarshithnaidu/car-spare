@@ -32,16 +32,17 @@ export default function OrdersPage() {
     }
 
     async function fetchOrders(userId: string) {
-        const { data, error } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
-
-        if (data) {
-            setOrders(data);
+        try {
+            const res = await fetch(`/api/orders?user_id=${userId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setOrders(data);
+            }
+        } catch (error) {
+            console.error('Failed to load orders', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     const getStatusColor = (status: string) => {

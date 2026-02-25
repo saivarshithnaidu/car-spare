@@ -30,24 +30,24 @@ export default function ProfilePage() {
     }
 
     async function fetchUserData(userId: string) {
-        const { data: userData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .single();
+        try {
+            const res = await fetch(`/api/users/${userId}`);
+            if (res.ok) {
+                const userData = await res.json();
+                setUser(userData);
+            }
 
-        setUser(userData);
-
-        // Fetch khatabook balance
-        const { data: khatabookData } = await supabase
-            .from('khatabook')
-            .select('pending_amount')
-            .eq('customer_id', userId)
-            .eq('status', 'pending');
-
-        if (khatabookData && khatabookData.length > 0) {
-            const total = khatabookData.reduce((sum, entry) => sum + entry.pending_amount, 0);
-            setKhatabookBalance(total);
+            const kbRes = await fetch(`/api/khatabook?user_id=${userId}`);
+            if (kbRes.ok) {
+                const khatabookData = await kbRes.json();
+                const pendingData = khatabookData.filter((k: any) => k.status === 'pending');
+                if (pendingData.length > 0) {
+                    const total = pendingData.reduce((sum: number, entry: any) => sum + entry.pending_amount, 0);
+                    setKhatabookBalance(total);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load user data or khatabook balance', error);
         }
     }
 

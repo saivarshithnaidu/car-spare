@@ -53,90 +53,18 @@ export default function AdminDashboard() {
     }, []);
 
     async function fetchDashboardData() {
-        // Fetch total sales
-        const { data: paidOrders } = await supabase
-            .from('orders')
-            .select('total_amount')
-            .eq('payment_status', 'paid');
-        const totalSales = paidOrders?.reduce((sum, order) => sum + order.total_amount, 0) || 0;
-
-        // Fetch total orders
-        const { count: totalOrders } = await supabase
-            .from('orders')
-            .select('*', { count: 'exact', head: true });
-
-        // Fetch pending payments from khatabook
-        const { data: khatabookData } = await supabase
-            .from('khatabook')
-            .select('pending_amount')
-            .eq('status', 'pending');
-        const pendingPayments = khatabookData?.reduce((sum, entry) => sum + entry.pending_amount, 0) || 0;
-
-        // Fetch low stock items
-        const { count: lowStockCount } = await supabase
-            .from('spare_parts')
-            .select('*', { count: 'exact', head: true })
-            .lt('stock_quantity', 10)
-            .gt('stock_quantity', 0);
-
-        // --- NEW CUSTOMER STATS ---
-        const now = new Date();
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const startOfDay = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-
-        // 1. Total Customers
-        const { count: totalCustomers } = await supabase
-            .from('users')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'customer');
-
-        // 2. New Customers (last 7 days)
-        const { count: newCustomers } = await supabase
-            .from('users')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'customer')
-            .gte('created_at', sevenDaysAgo);
-
-        // 3. Active Today
-        const { count: activeToday } = await supabase
-            .from('users')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'customer')
-            .gte('last_login', startOfDay);
-
-        setStats({
-            totalSales,
-            totalOrders: totalOrders || 0,
-            pendingPayments,
-            lowStockCount: lowStockCount || 0,
-            totalCustomers: totalCustomers || 0,
-            newCustomers: newCustomers || 0,
-            activeToday: activeToday || 0,
-        });
-
-        // Fetch recent orders
-        const { data: orders } = await supabase
-            .from('orders')
-            .select('*, users(email)')
-            .order('created_at', { ascending: false })
-            .limit(5);
-        setRecentOrders(orders || []);
-
-        // Fetch recent customers
-        const { data: customers } = await supabase
-            .from('users')
-            .select('id, full_name, email, created_at')
-            .eq('role', 'customer')
-            .order('created_at', { ascending: false })
-            .limit(5);
-        setRecentCustomers(customers || []);
-
-        // Payment status stats
-        const { data: allOrders } = await supabase.from('orders').select('payment_status');
-        const paid = allOrders?.filter(o => o.payment_status === 'paid').length || 0;
-        const pending = allOrders?.filter(o => o.payment_status === 'pending').length || 0;
-        const failed = allOrders?.filter(o => o.payment_status === 'failed').length || 0;
-        setPaymentStats({ paid, pending, failed });
+        try {
+            const res = await fetch('/api/dashboard');
+            if (res.ok) {
+                const data = await res.json();
+                setStats(data.stats);
+                setRecentOrders(data.recentOrders);
+                setRecentCustomers(data.recentCustomers);
+                setPaymentStats(data.paymentStats);
+            }
+        } catch (error) {
+            console.error('Failed to load dashboard data', error);
+        }
 
         // Monthly revenue (mock for now)
         const monthlyData = [12000, 19000, 15000, 25000, 22000, 30000];

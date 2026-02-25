@@ -28,40 +28,36 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
 
     async function fetchOrderDetails() {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('orders')
-            .select(`
-                *,
-                users:user_id(email, full_name, phone, address, district, state, pincode),
-                order_items(*, spare_part:spare_part_id(*))
-            `)
-            .eq('id', orderId)
-            .single();
-
-        if (error || !data) {
+        try {
+            const res = await fetch(`/api/orders/${orderId}`);
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+            setOrder(data);
+        } catch (error) {
             toast.error('Failed to load order details');
             router.push('/admin/orders');
-            return;
+        } finally {
+            setLoading(false);
         }
-
-        setOrder(data);
-        setLoading(false);
     }
 
     async function updateOrderStatus(newStatus: string) {
         setStatusLoading(true);
-        const { error } = await supabase
-            .from('orders')
-            .update({ order_status: newStatus })
-            .eq('id', orderId);
+        try {
+            const res = await fetch(`/api/orders/${orderId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_status: newStatus })
+            });
 
-        if (error) {
-            toast.error('Failed to update order status');
-        } else {
+            if (!res.ok) throw new Error();
             setOrder({ ...order, order_status: newStatus });
             toast.success('Order status updated successfully');
+        } catch (error) {
+            toast.error('Failed to update order status');
+        } finally {
+            setStatusLoading(false);
         }
-        setStatusLoading(false);
     }
 
     async function handleGenerateInvoice() {
@@ -101,12 +97,12 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
             const invoiceUrl = await uploadInvoiceToSupabase(pdfBytes, invoiceNumber);
 
             // Update order with invoice URL
-            const { error: updateError } = await supabase
-                .from('orders')
-                .update({ invoice_url: invoiceUrl })
-                .eq('id', order.id);
-
-            if (updateError) throw updateError;
+            const resUpdate = await fetch(`/api/orders/${order.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoice_url: invoiceUrl })
+            });
+            if (!resUpdate.ok) throw new Error('Failed to update order');
 
             setOrder({ ...order, invoice_url: invoiceUrl });
             toast.success('Invoice generated successfully');
@@ -151,8 +147,8 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
                                 Packing & Status
                             </h2>
                             <span className={`mt-2 sm:mt-0 px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto ${order.payment_status === 'paid' ? 'bg-green-100 text-green-700' :
-                                    order.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                        'bg-red-100 text-red-700'
+                                order.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-red-100 text-red-700'
                                 }`}>
                                 Payment: {order.payment_status.toUpperCase()}
                             </span>

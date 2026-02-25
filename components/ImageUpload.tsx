@@ -92,23 +92,23 @@ export default function ImageUpload({
             const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
             const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
 
-            const { error: uploadError, data } = await supabase.storage
-                .from(bucketName)
-                .upload(filePath, file, {
-                    cacheControl: '3600',
-                    upsert: false
-                });
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('bucket', bucketName);
+            formData.append('path', filePath);
 
-            if (uploadError) {
-                throw uploadError;
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Upload failed');
             }
 
-            // Get public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from(bucketName)
-                .getPublicUrl(filePath);
-
-            onUploadSuccess(publicUrl);
+            const data = await res.json();
+            onUploadSuccess(data.url);
             toast.success('Image uploaded successfully');
 
         } catch (error: any) {

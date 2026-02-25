@@ -29,25 +29,27 @@ export default function HomePage() {
   }, [ads.length]);
 
   async function fetchAds() {
-    const { data } = await supabase
-      .from('ads')
-      .select('*')
-      .eq('active', true)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    if (data) setAds(data);
+    try {
+      const res = await fetch('/api/ads');
+      if (res.ok) {
+        const data = await res.json();
+        setAds(data.filter((ad: any) => ad.active).slice(0, 5));
+      }
+    } catch (error) {
+      console.error('Failed to fetch ads', error);
+    }
   }
 
   async function fetchFeaturedProducts() {
-    const { data } = await supabase
-      .from('spare_parts')
-      .select('*')
-      .gt('stock_quantity', 0)
-      .order('created_at', { ascending: false })
-      .limit(6);
-
-    if (data) setFeaturedProducts(data);
+    try {
+      const res = await fetch('/api/products');
+      if (res.ok) {
+        const data = await res.json();
+        setFeaturedProducts(data.filter((p: any) => p.stock_quantity > 0).slice(0, 6));
+      }
+    } catch (error) {
+      console.error('Failed to fetch products', error);
+    }
   }
 
   return (

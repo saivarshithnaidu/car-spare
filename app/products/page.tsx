@@ -32,19 +32,20 @@ export default function ProductsPage() {
 
     async function fetchProducts() {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('spare_parts')
-            .select('*')
-            .order('created_at', { ascending: false });
+        try {
+            const res = await fetch('/api/products');
+            if (!res.ok) throw new Error('Failed to fetch products');
+            const data: SparePart[] = await res.json();
 
-        if (data) {
             setProducts(data);
-
-            // Extract unique car models
             const models = Array.from(new Set(data.map(p => p.car_model)));
             setCarModels(models);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to load products');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     function filterProducts() {
@@ -227,8 +228,8 @@ export default function ProductsPage() {
                                             key={i}
                                             onClick={() => setCurrentPage(i + 1)}
                                             className={`px-4 py-2 rounded-lg font-medium transition-colors ${currentPage === i + 1
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                                                 }`}
                                         >
                                             {i + 1}

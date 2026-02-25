@@ -12,16 +12,18 @@ export async function signUp(email: string, password: string, phone?: string) {
     }
 
     // Insert user into users table with role
-    const { error: userError } = await supabase
-        .from('users')
-        .insert({
+    const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
             id: authData.user.id,
             email: authData.user.email!,
             role: 'customer',
             phone: phone || null,
-        });
+        })
+    });
 
-    if (userError) {
+    if (!res.ok) {
         throw new Error('Failed to create user profile');
     }
 
@@ -40,10 +42,11 @@ export async function signIn(email: string, password: string) {
 
     // Update last_login
     if (data.user) {
-        await supabase
-            .from('users')
-            .update({ last_login: new Date().toISOString() })
-            .eq('id', data.user.id);
+        await fetch(`/api/users/${data.user.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ last_login: new Date().toISOString() })
+        });
     }
 
     return data.user;
@@ -62,11 +65,9 @@ export async function getCurrentUser() {
     if (error || !user) return null;
 
     // Get user details from users table
-    const { data: userData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+    const res = await fetch(`/api/users/${user.id}`);
+    if (!res.ok) return null;
+    const userData = await res.json();
 
     return userData;
 }

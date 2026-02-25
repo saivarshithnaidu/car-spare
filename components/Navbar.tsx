@@ -66,20 +66,15 @@ export default function Navbar() {
             }
 
             // Try to get user data from users table
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', authUser.id)
-                .single();
+            const res = await fetch(`/api/users/${authUser.id}`);
 
-            console.log('User data from table:', userData, 'Error:', userError);
-
-            if (userError) {
-                console.error('Error fetching user data:', userError);
+            if (!res.ok) {
+                console.error('Error fetching user data');
                 // Even if we can't get user data, show that user is logged in
                 setUser({ id: authUser.id, email: authUser.email, role: 'customer' });
                 setIsAdmin(false);
-            } else if (userData) {
+            } else {
+                const userData = await res.json();
                 console.log('User role:', userData.role);
                 setUser(userData);
                 setIsAdmin(userData?.role === 'admin');

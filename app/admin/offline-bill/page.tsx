@@ -45,21 +45,27 @@ export default function OfflineBillPage() {
     }, []);
 
     async function fetchCustomers() {
-        const { data } = await supabase
-            .from('users')
-            .select('id, email, full_name, phone')
-            .eq('role', 'customer')
-            .order('created_at', { ascending: false });
-        if (data) setCustomers(data);
+        try {
+            const res = await fetch('/api/users?role=customer');
+            if (res.ok) {
+                const data = await res.json();
+                setCustomers(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch customers', error);
+        }
     }
 
     async function fetchProducts() {
-        const { data } = await supabase
-            .from('spare_parts')
-            .select('id, name, price, stock_quantity')
-            .gt('stock_quantity', 0)
-            .order('name');
-        if (data) setProducts(data);
+        try {
+            const res = await fetch('/api/products');
+            if (res.ok) {
+                const data = await res.json();
+                setProducts(data.filter((p: any) => p.stock_quantity > 0));
+            }
+        } catch (error) {
+            console.error('Failed to fetch products', error);
+        }
     }
 
     const filteredProducts = products.filter(p =>
@@ -175,11 +181,10 @@ export default function OfflineBillPage() {
             const pdfBytes = await generateInvoicePDF(invoiceData);
             const invoiceUrl = await uploadInvoiceToSupabase(pdfBytes, invoiceNumber);
 
-            console.log("Submitting order with paymentMethod:", paymentMethod, "and paymentStatus:", paymentStatus);
-
-            const { data: orderData, error: orderError } = await supabase
-                .from('orders')
-                .insert({
+            const resOrder = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     user_id: customerId,
                     total_amount: totalAmount,
                     payment_status: paymentStatus,
@@ -189,13 +194,10 @@ export default function OfflineBillPage() {
                     gst_amount: gstAmount,
                     discount: discount
                 })
-                .select()
-                .single();
+            });
 
-            if (orderError) {
-                console.error("Supabase Order Insert Error:", orderError);
-                throw new Error(orderError.message || "Failed to save order to database.");
-            }
+            if (!resOrder.ok) throw new Error("Failed to save order to database.");
+            const orderData = await resOrder.json();
 
             const orderItems = cart.map(item => ({
                 order_id: orderData.id,
@@ -204,33 +206,35 @@ export default function OfflineBillPage() {
                 price: item.price
             }));
 
-            const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-            if (itemsError) throw itemsError;
+            const resItems = await fetch('/api/order-items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderItems)
+            });
+            if (!resItems.ok) throw new Error("Failed to save order items.");
 
             for (const item of cart) {
-                let { error: rpcError } = await supabase.rpc('decrement_stock', {
-                    product_id: item.id,
-                    qty: item.quantity
+                await fetch(`/api/products/${item.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stock_quantity: item.stock_quantity - item.quantity })
                 });
-
-                if (rpcError) {
-                    await supabase.from('spare_parts')
-                        .update({ stock_quantity: item.stock_quantity - item.quantity })
-                        .eq('id', item.id);
-                }
             }
 
             if (paymentMethod === 'credit' && customerId) {
-                const { error: kbError } = await supabase.from('khatabook').insert({
-                    customer_id: customerId,
-                    order_id: orderData.id,
-                    total_amount: totalAmount,
-                    amount_pending: totalAmount,
-                    amount_paid: 0,
-                    due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                    status: 'pending'
+                await fetch('/api/khatabook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: customerId,
+                        order_id: orderData.id,
+                        total_amount: totalAmount,
+                        paid_amount: 0,
+                        pending_amount: totalAmount,
+                        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                        status: 'pending'
+                    })
                 });
-                if (kbError) console.error("Khatabook error:", kbError);
             }
 
             toast.success('Bill generated successfully!');

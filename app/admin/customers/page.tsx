@@ -20,19 +20,16 @@ export default function AdminCustomersPage() {
 
     async function fetchCustomers() {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('users')
-            .select(`
-                id, email, full_name, phone, district, state,
-                created_at, last_login, profile_completed, is_vip
-            `)
-            .eq('role', 'customer')
-            .order('created_at', { ascending: false });
-
-        if (!error && data) {
+        try {
+            const res = await fetch('/api/users?role=customer');
+            if (!res.ok) throw new Error();
+            const data = await res.json();
             setCustomers(data);
+        } catch (error) {
+            console.error('Failed to fetch customers', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     const filteredCustomers = customers.filter(customer => {

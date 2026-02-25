@@ -29,12 +29,15 @@ export default function AdminProductsPage() {
     }, []);
 
     async function fetchProducts() {
-        const { data } = await supabase
-            .from('spare_parts')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (data) setProducts(data);
+        try {
+            const res = await fetch('/api/products');
+            if (res.ok) {
+                const data = await res.json();
+                setProducts(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch products', error);
+        }
     }
 
     function openAddModal() {
@@ -75,49 +78,48 @@ export default function AdminProductsPage() {
             image_url: formData.image_url,
         };
 
-        if (editingProduct) {
-            // Update
-            const { error } = await supabase
-                .from('spare_parts')
-                .update(productData)
-                .eq('id', editingProduct.id);
+        try {
+            if (editingProduct) {
+                // Update
+                const res = await fetch(`/api/products/${editingProduct.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(productData),
+                });
 
-            if (error) {
-                toast.error('Failed to update product');
-            } else {
+                if (!res.ok) throw new Error('Failed to update product');
                 toast.success('Product updated successfully');
-                setIsModalOpen(false);
-                fetchProducts();
-            }
-        } else {
-            // Create
-            const { error } = await supabase
-                .from('spare_parts')
-                .insert(productData);
-
-            if (error) {
-                toast.error('Failed to create product');
             } else {
+                // Create
+                const res = await fetch('/api/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(productData),
+                });
+
+                if (!res.ok) throw new Error('Failed to create product');
                 toast.success('Product created successfully');
-                setIsModalOpen(false);
-                fetchProducts();
             }
+            setIsModalOpen(false);
+            fetchProducts();
+        } catch (error: any) {
+            toast.error(error.message || 'An error occurred');
         }
     }
 
     async function handleDelete(id: string, name: string) {
         if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
 
-        const { error } = await supabase
-            .from('spare_parts')
-            .delete()
-            .eq('id', id);
+        try {
+            const res = await fetch(`/api/products/${id}`, {
+                method: 'DELETE',
+            });
+            if (!res.ok) throw new Error('Failed to delete product');
 
-        if (error) {
-            toast.error('Failed to delete product');
-        } else {
             toast.success('Product deleted successfully');
             fetchProducts();
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to delete product');
         }
     }
 

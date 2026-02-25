@@ -24,19 +24,21 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     }, [unwrappedParams.id]);
 
     async function fetchProduct() {
-        const { data, error } = await supabase
-            .from('spare_parts')
-            .select('*')
-            .eq('id', unwrappedParams.id)
-            .single();
-
-        if (data) {
+        try {
+            const res = await fetch(`/api/products/${unwrappedParams.id}`);
+            if (!res.ok) {
+                toast.error('Product not found');
+                router.push('/products');
+                return;
+            }
+            const data = await res.json();
             setProduct(data);
-        } else {
+        } catch (error) {
             toast.error('Product not found');
             router.push('/products');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     function handleAddToCart() {

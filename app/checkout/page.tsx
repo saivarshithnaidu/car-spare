@@ -89,9 +89,10 @@ export default function CheckoutPage() {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             if (!authUser) throw new Error('Not authenticated');
 
-            const { data: order, error: orderError } = await supabase
-                .from('orders')
-                .insert({
+            const resOrder = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     user_id: authUser.id,
                     total_amount: totals.total,
                     payment_status: 'pending',
@@ -100,10 +101,9 @@ export default function CheckoutPage() {
                     gst_amount: totals.gst,
                     discount: 0
                 })
-                .select()
-                .single();
-
-            if (orderError) throw orderError;
+            });
+            if (!resOrder.ok) throw new Error('Failed to create order');
+            const order = await resOrder.json();
 
             // Generate Invoice
             const invoiceNumber = `ORD-${order.id.split('-')[0].toUpperCase()}`;
@@ -132,10 +132,12 @@ export default function CheckoutPage() {
             const invoiceUrl = await uploadInvoiceToSupabase(pdfBytes, invoiceNumber);
 
             // Update order with invoice URL
-            await supabase
-                .from('orders')
-                .update({ invoice_url: invoiceUrl })
-                .eq('id', order.id);
+            const resUpdate = await fetch(`/api/orders/${order.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoice_url: invoiceUrl })
+            });
+            if (!resUpdate.ok) throw new Error('Failed to update order invoice');
 
             // Insert order items
             const orderItems = cartItems.map(item => ({
@@ -145,22 +147,22 @@ export default function CheckoutPage() {
                 price: item.spare_part.price,
             }));
 
-            const { error: itemsError } = await supabase
-                .from('order_items')
-                .insert(orderItems);
-
-            if (itemsError) throw itemsError;
+            const resItems = await fetch('/api/order-items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderItems)
+            });
+            if (!resItems.ok) throw new Error('Failed to insert order items');
 
             // Reduce stock quantities
             for (const item of cartItems) {
-                const { error: updateError } = await supabase
-                    .from('spare_parts')
-                    .update({
+                await fetch(`/api/products/${item.spare_part.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                         stock_quantity: item.spare_part.stock_quantity - item.quantity
                     })
-                    .eq('id', item.spare_part.id);
-
-                if (updateError) console.error('Stock update error:', updateError);
+                });
             }
 
             clearCart();
@@ -279,10 +281,11 @@ export default function CheckoutPage() {
                 const invoiceUrl = await uploadInvoiceToSupabase(pdfBytes, invoiceNumber);
 
                 // Update order with invoice URL
-                await supabase
-                    .from('orders')
-                    .update({ invoice_url: invoiceUrl })
-                    .eq('id', orderId);
+                await fetch(`/api/orders/${orderId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ invoice_url: invoiceUrl })
+                });
 
                 clearCart();
                 window.dispatchEvent(new Event('cartUpdated'));
