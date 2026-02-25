@@ -15,8 +15,13 @@ export default function OAuthButtons() {
         if (provider === 'facebook') setIsLoadingFacebook(true);
 
         try {
-            // Push browser directly to our Vercel Edge API which will redirect to Supabase Auth
-            window.location.href = `/api/auth/oauth?provider=${provider}`;
+            // Push browser directly to Next.js reverse-proxy rewrite for Supabase
+            // This prevents Supabase domain from being directly evaluated/blocked by aggressive Indian ISPs (like Jio/Airtel)
+            const origin = window.location.origin;
+            const callbackUrl = encodeURIComponent(`${origin}/auth/callback`);
+
+            // Reconstruct exactly what Supabase does, but point to our Vercel Rewrite map
+            window.location.href = `/auth/v1/authorize?provider=${provider}&redirect_to=${callbackUrl}`;
         } catch (error: any) {
             toast.error(error.message || `Failed to sign in with ${provider}`);
             if (provider === 'google') setIsLoadingGoogle(false);
