@@ -15,19 +15,10 @@ export default function OAuthButtons() {
         if (provider === 'facebook') setIsLoadingFacebook(true);
 
         try {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider,
-                options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
-                },
-            });
-
-            if (error) {
-                toast.error(error.message);
-            }
+            // Push browser directly to our Vercel Edge API which will redirect to Supabase Auth
+            window.location.href = `/api/auth/oauth?provider=${provider}`;
         } catch (error: any) {
             toast.error(error.message || `Failed to sign in with ${provider}`);
-        } finally {
             if (provider === 'google') setIsLoadingGoogle(false);
             if (provider === 'facebook') setIsLoadingFacebook(false);
         }

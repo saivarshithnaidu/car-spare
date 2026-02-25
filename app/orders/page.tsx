@@ -19,13 +19,15 @@ export default function OrdersPage() {
     }, []);
 
     async function checkAuthAndFetch() {
-        const { data: { user } } = await supabase.auth.getUser();
+        const res = await fetch('/api/auth/me');
 
-        if (!user) {
+        if (!res.ok) {
             // Not logged in, redirect to login
             router.replace('/login');
             return;
         }
+
+        const { user } = await res.json();
 
         setChecking(false);
         fetchOrders(user.id);

@@ -1,75 +1,53 @@
-import { supabase } from './supabase';
 
 export async function signUp(email: string, password: string, phone?: string) {
-    // Sign up with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-    });
-
-    if (authError || !authData.user) {
-        throw new Error(authError?.message || 'Failed to create account');
-    }
-
-    // Insert user into users table with role
-    const res = await fetch('/api/users', {
+    const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            id: authData.user.id,
-            email: authData.user.email!,
-            role: 'customer',
-            phone: phone || null,
-        })
+        body: JSON.stringify({ email, password, phone }),
     });
-
     if (!res.ok) {
-        throw new Error('Failed to create user profile');
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to create account');
     }
-
-    return authData.user;
+    const data = await res.json();
+    return data.user;
 }
 
 export async function signIn(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+    const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
     });
-
-    if (error) {
-        throw new Error(error.message);
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to login');
     }
-
-    // Update last_login
-    if (data.user) {
-        await fetch(`/api/users/${data.user.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ last_login: new Date().toISOString() })
-        });
-    }
-
+    const data = await res.json();
     return data.user;
 }
 
 export async function signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-        throw new Error(error.message);
+    const res = await fetch('/api/auth/logout', { method: 'POST' });
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to logout');
+    }
+    // Dispatch event so active components can cleanup
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('authStatusChanged'));
     }
 }
 
 export async function getCurrentUser() {
-    const { data, error } = await supabase.auth.getUser();
-    const user = data?.user;
-    if (error || !user) return null;
-
-    // Get user details from users table
-    const res = await fetch(`/api/users/${user.id}`);
-    if (!res.ok) return null;
-    const userData = await res.json();
-
-    return userData;
+    try {
+        const res = await fetch('/api/auth/me');
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.user;
+    } catch {
+        return null;
+    }
 }
 
 export async function checkIsAdmin() {

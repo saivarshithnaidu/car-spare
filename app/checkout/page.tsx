@@ -34,7 +34,9 @@ export default function CheckoutPage() {
     }, []);
 
     async function checkAuth() {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const res = await fetch('/api/auth/me');
+        if (!res.ok) throw new Error('Not authenticated');
+        const { user: authUser } = await res.json();
 
         if (!authUser) {
             toast.error('Please login to proceed');
@@ -86,8 +88,9 @@ export default function CheckoutPage() {
 
         try {
             // Create order with COD/POD
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (!authUser) throw new Error('Not authenticated');
+            const res = await fetch('/api/auth/me');
+            if (!res.ok) throw new Error('Not authenticated');
+            const { user: authUser } = await res.json();
 
             const resOrder = await fetch('/api/orders', {
                 method: 'POST',

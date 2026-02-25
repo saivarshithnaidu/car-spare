@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { ShoppingCart, User, Menu, X, Sun, Moon, LogOut, Package } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { getCartItemCount } from '@/lib/cart';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -27,16 +26,9 @@ export default function Navbar() {
         // Check auth state
         checkUser();
 
-        // Listen to auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            console.log('Auth state changed:', _event, session?.user?.email);
-            if (session?.user) {
-                checkUser();
-            } else {
-                setUser(null);
-                setIsAdmin(false);
-            }
-        });
+        // Listen for internal auth changes or hard refreshes
+        const handleAuthChange = () => checkUser();
+        window.addEventListener('authStatusChanged', handleAuthChange);
 
         // Update cart count
         updateCartCount();
@@ -46,7 +38,7 @@ export default function Navbar() {
         window.addEventListener('cartUpdated', handleCartUpdate);
 
         return () => {
-            subscription.unsubscribe();
+            window.removeEventListener('authStatusChanged', handleAuthChange);
             window.removeEventListener('cartUpdated', handleCartUpdate);
         };
     }, []);
@@ -54,33 +46,28 @@ export default function Navbar() {
     async function checkUser() {
         try {
             console.log('Checking user...');
-            const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+            const res = await fetch('/api/auth/me');
 
-            console.log('Auth user:', authUser?.email, 'Error:', authError);
-
-            if (authError || !authUser) {
+            if (!res.ok) {
                 console.log('No auth user found');
                 setUser(null);
                 setIsAdmin(false);
                 return;
             }
 
-            // Try to get user data from users table
-            const res = await fetch(`/api/users/${authUser.id}`);
-
-            if (!res.ok) {
-                console.error('Error fetching user data');
-                // Even if we can't get user data, show that user is logged in
-                setUser({ id: authUser.id, email: authUser.email, role: 'customer' });
-                setIsAdmin(false);
+            const data = await res.json();
+            if (data.user) {
+                console.log('User data loaded:', data.user.email);
+                setUser(data.user);
+                setIsAdmin(data.user.role === 'admin');
             } else {
-                const userData = await res.json();
-                console.log('User role:', userData.role);
-                setUser(userData);
-                setIsAdmin(userData?.role === 'admin');
+                setUser(null);
+                setIsAdmin(false);
             }
         } catch (error) {
             console.error('Error in checkUser:', error);
+            setUser(null);
+            setIsAdmin(false);
         }
     }
 
@@ -101,12 +88,16 @@ export default function Navbar() {
     }
 
     async function handleLogout() {
-        await supabase.auth.signOut();
-        setUser(null);
-        setIsAdmin(false);
-        toast.success('Logged out successfully');
-        router.push('/');
-        router.refresh();
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            setUser(null);
+            setIsAdmin(false);
+            toast.success('Logged out successfully');
+            router.push('/');
+            router.refresh();
+        } catch (err) {
+            console.error('Logout error', err);
+        }
     }
 
     return (

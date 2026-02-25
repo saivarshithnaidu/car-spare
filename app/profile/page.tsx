@@ -17,13 +17,15 @@ export default function ProfilePage() {
     }, []);
 
     async function checkAuthAndFetch() {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const res = await fetch('/api/auth/me');
 
-        if (!authUser) {
+        if (!res.ok) {
             // Not logged in, redirect to login
             router.replace('/login');
             return;
         }
+
+        const { user: authUser } = await res.json();
 
         setChecking(false);
         fetchUserData(authUser.id);

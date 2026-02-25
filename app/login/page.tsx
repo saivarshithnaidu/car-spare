@@ -23,10 +23,12 @@ export default function LoginPage() {
         // Check if user is already logged in
         async function checkAuth() {
             try {
-                const { data, error } = await supabase.auth.getUser();
-                if (error) {
-                    console.error('Auth check error:', error);
+                const res = await fetch('/api/auth/me');
+                if (!res.ok) {
+                    setChecking(false);
+                    return;
                 }
+                const data = await res.json();
                 const user = data?.user;
                 if (user) {
                     // Already logged in, redirect to home

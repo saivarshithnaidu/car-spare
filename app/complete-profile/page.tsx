@@ -26,23 +26,25 @@ export default function CompleteProfilePage() {
     useEffect(() => {
         async function checkAuthAndProfile() {
             try {
-                const { data, error } = await supabase.auth.getUser();
-                const user = data?.user;
+                const res = await fetch('/api/auth/me');
+                if (!res.ok) {
+                    router.replace('/login');
+                    return;
+                }
+                const { user } = await res.json();
 
-                if (error || !user) {
+                if (!user) {
                     router.replace('/login');
                     return;
                 }
 
                 setUserId(user.id);
 
-                // Fetch current user details from 'users' table
-                const res = await fetch(`/api/users/${user.id}`);
-                if (!res.ok) throw new Error('User not found');
-                const userData = await res.json();
-                const userError = null;
+                // Fetch current user details from API
+                const userDataRes = await fetch(`/api/users/${user.id}`);
+                const userData = userDataRes.ok ? await userDataRes.json() : null;
 
-                if (!userError && userData) {
+                if (userData) {
                     if (userData.profile_completed) {
                         // Profile is already completed, redirect to home
                         router.replace('/');
